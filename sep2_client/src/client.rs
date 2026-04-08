@@ -26,7 +26,15 @@ use tokio::sync::Mutex;
 
 use crate::{
     time::{current_time_with_offset, SEPTime},
-    tls::{create_client, create_client_tls_cfg, create_http_client, ClientInner, HttpRequester},
+    tls::{
+        create_client,
+        create_client_tls_cfg,
+        create_client_tls_cfg_with_options,
+        create_http_client,
+        ClientInner,
+        ClientTlsOptions,
+        HttpRequester,
+    },
 };
 
 #[cfg(feature = "event")]
@@ -282,6 +290,30 @@ impl Client {
         tickrate: Option<Duration>,
     ) -> Result<Self> {
         let cfg = create_client_tls_cfg(cert_path, pk_path, rootca_path)?;
+        Self::new_https_with_tls_config(server_addr, cfg, tcp_keepalive, tickrate)
+    }
+
+    /// Construct an IEEE 2030.5 Client instance that uses HTTPS with custom TLS options.
+    pub fn new_https_with_tls_options(
+        server_addr: &str,
+        cert_path: impl AsRef<Path>,
+        pk_path: impl AsRef<Path>,
+        rootca_path: impl AsRef<Path>,
+        tls_options: &ClientTlsOptions,
+        tcp_keepalive: Option<Duration>,
+        tickrate: Option<Duration>,
+    ) -> Result<Self> {
+        let cfg = create_client_tls_cfg_with_options(cert_path, pk_path, rootca_path, tls_options)?;
+        Self::new_https_with_tls_config(server_addr, cfg, tcp_keepalive, tickrate)
+    }
+
+    /// Construct an IEEE 2030.5 Client instance that uses a pre-built TLS configuration.
+    pub fn new_https_with_tls_config(
+        server_addr: &str,
+        cfg: crate::tls::TlsClientConfig,
+        tcp_keepalive: Option<Duration>,
+        tickrate: Option<Duration>,
+    ) -> Result<Self> {
         let out = Client {
             addr: server_addr.to_owned().into(),
             inner: ClientInner::Https(create_client(cfg, tcp_keepalive)),

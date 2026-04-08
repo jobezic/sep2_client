@@ -36,6 +36,23 @@ pub trait HttpRequester: Send + Sync {
     >;
 }
 
+pub const DEFAULT_TLS_CLIENT_CIPHER_LIST: &str = "ECDHE-ECDSA-AES128-CCM8";
+
+#[derive(Clone)]
+pub struct ClientTlsOptions {
+    pub cipher_list: String,
+    pub use_certificate_chain_file: bool,
+}
+
+impl Default for ClientTlsOptions {
+    fn default() -> Self {
+        Self {
+            cipher_list: DEFAULT_TLS_CLIENT_CIPHER_LIST.to_owned(),
+            use_certificate_chain_file: false,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub(crate) enum ClientInner {
     Https(HTTPSClient),
@@ -62,11 +79,24 @@ pub(crate) fn create_client_tls_cfg(
     pk_path: impl AsRef<Path>,
     rootca_path: impl AsRef<Path>,
 ) -> Result<TlsClientConfig> {
+    create_client_tls_cfg_with_options(cert_path, pk_path, rootca_path, &ClientTlsOptions::default())
+}
+
+pub(crate) fn create_client_tls_cfg_with_options(
+    cert_path: impl AsRef<Path>,
+    pk_path: impl AsRef<Path>,
+    rootca_path: impl AsRef<Path>,
+    options: &ClientTlsOptions,
+) -> Result<TlsClientConfig> {
     let mut builder = SslConnector::builder(SslMethod::tls_client())?;
     log::debug!("Setting CipherSuite");
-    builder.set_cipher_list("ECDHE-ECDSA-AES128-CCM8")?;
+    builder.set_cipher_list(&options.cipher_list)?;
     log::debug!("Loading Certificate File");
-    builder.set_certificate_file(cert_path, SslFiletype::PEM)?;
+    if options.use_certificate_chain_file {
+        builder.set_certificate_chain_file(cert_path)?;
+    } else {
+        builder.set_certificate_file(cert_path, SslFiletype::PEM)?;
+    }
     log::debug!("Loading Private Key File");
     builder.set_private_key_file(pk_path, SslFiletype::PEM)?;
     log::debug!("Loading Certificate Authority File");
