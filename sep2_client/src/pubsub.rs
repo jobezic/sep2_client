@@ -2,14 +2,13 @@
 
 use anyhow::{Context, Result};
 use hyper::{server::conn::Http, service::service_fn, Body, Method, Request, Response};
-use openssl::ssl::Ssl;
 use sep2_common::{deserialize, packages::pubsub::Notification, traits::SEResource};
 use std::collections::HashMap;
 use std::net;
 use std::path::Path;
 use std::{future::Future, net::SocketAddr, pin::Pin, sync::Arc};
 use tokio::net::TcpListener;
-use tokio_openssl::SslStream;
+use tokio_rustls::TlsAcceptor;
 
 use crate::client::SEPResponse;
 use crate::tls::{create_server_tls_config, TlsServerConfig};
@@ -147,7 +146,7 @@ impl ClientNotifServer {
     /// It will recover from all other errors.
     pub async fn run(self, shutdown: impl Future) -> Result<()> {
         tokio::pin!(shutdown);
-        let acceptor = self.cfg.map(|cfg| cfg.build());
+        let acceptor = self.cfg.map(TlsAcceptor::from);
         let router = Arc::new(self.router);
         let listener = TcpListener::bind(self.addr).await?;
         let mut set = tokio::task::JoinSet::new();
@@ -177,13 +176,13 @@ impl ClientNotifServer {
 
             if let Some(acceptor) = &acceptor {
                 // Perform TLS handshake
-                let ssl = Ssl::new(acceptor.context())?;
-                let stream = SslStream::new(ssl, stream)?;
-                let mut stream = Box::pin(stream);
-                if let Err(e) = stream.as_mut().accept().await {
-                    log::error!("NotifServer: Failed to perform TLS handshake: {e}");
-                    continue;
-                }
+                let stream = match acceptor.accept(stream).await {
+                    Ok(stream) => stream,
+                    Err(e) => {
+                        log::error!("NotifServer: Failed to perform TLS handshake: {e}");
+                        continue;
+                    }
+                };
                 set.spawn(async move {
                     if let Err(err) = Http::new().serve_connection(stream, service).await {
                         log::error!("NotifServer: Failed to handle HTTPS connection: {err}");
