@@ -99,7 +99,7 @@ features = ["der","pubsub"]
 
 # Dependencies
 This library now uses rustls for TLS.
-The default TLS configuration uses `ECDHE-ECDSA-AES128-GCM-SHA256`, and `ClientTlsOptions` accepts a typed rustls cipher-suite value instead of a string cipher list.
+The default TLS configuration uses `ECDHE-ECDSA-AES128-GCM-SHA256`.
 
 
 [^1]: The library also performs as expected on macOS.

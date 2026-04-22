@@ -16,7 +16,6 @@ use anyhow::{anyhow, bail, Result};
 use hyper::client::HttpConnector;
 use hyper::{Body, Client, Request};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-pub use rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
 use rustls::{
     client::{ClientConfig, HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier, ServerName},
     version, Certificate, DigitallySignedStruct, Error as TlsError, PrivateKey, RootCertStore,
@@ -43,6 +42,10 @@ pub(crate) type HTTPSClient = Client<HTTPSConnector, Body>;
 pub(crate) type HTTPClient = Client<HttpConnector, Body>;
 pub(crate) type TlsClientConfig = ClientConfig;
 
+const TLS_CLIENT_CIPHER_SUITE: SupportedCipherSuite =
+    rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
+const TLS_CLIENT_CIPHER_SUITES: &[SupportedCipherSuite] = &[TLS_CLIENT_CIPHER_SUITE];
+
 /// A trait for custom HTTP request handling, useful for mocking.
 pub trait HttpRequester: Send + Sync {
     fn request(
@@ -55,21 +58,14 @@ pub trait HttpRequester: Send + Sync {
     >;
 }
 
-pub const DEFAULT_TLS_CLIENT_CIPHER_SUITE: SupportedCipherSuite =
-    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
-
-const DEFAULT_TLS_CLIENT_CIPHER_SUITES: &[SupportedCipherSuite] = &[DEFAULT_TLS_CLIENT_CIPHER_SUITE];
-
 #[derive(Clone)]
 pub struct ClientTlsOptions {
-    pub cipher_suite: SupportedCipherSuite,
     pub use_certificate_chain_file: bool,
 }
 
 impl Default for ClientTlsOptions {
     fn default() -> Self {
         Self {
-            cipher_suite: DEFAULT_TLS_CLIENT_CIPHER_SUITE,
             use_certificate_chain_file: false,
         }
     }
@@ -111,8 +107,6 @@ pub(crate) fn create_client_tls_cfg_with_options(
     options: &ClientTlsOptions,
 ) -> Result<TlsClientConfig> {
     let rootca_path = rootca_path.as_ref();
-    log::debug!("Resolving CipherSuite");
-    let cipher_suites = std::slice::from_ref(&options.cipher_suite);
     log::debug!("Loading Certificate Authority File");
     let root_store = load_root_cert_store(rootca_path)?;
     let verifier = create_server_cert_verifier(rootca_path)?;
@@ -125,7 +119,7 @@ pub(crate) fn create_client_tls_cfg_with_options(
     log::debug!("Loading Private Key File");
     let private_key = load_private_key(pk_path)?;
     let mut config = ClientConfig::builder()
-        .with_cipher_suites(cipher_suites)
+        .with_cipher_suites(TLS_CLIENT_CIPHER_SUITES)
         .with_kx_groups(&[&rustls::kx_group::SECP256R1])
         .with_protocol_versions(&[&version::TLS12])?
         .with_root_certificates(root_store)
@@ -171,8 +165,6 @@ pub(crate) fn create_server_tls_config(
     pk_path: impl AsRef<Path>,
     rootca_path: impl AsRef<Path>,
 ) -> Result<TlsServerConfig> {
-    log::debug!("Resolving CipherSuite");
-    let cipher_suites = DEFAULT_TLS_CLIENT_CIPHER_SUITES;
     log::debug!("Loading Certificate Authority File");
     let root_store = load_root_cert_store(rootca_path)?;
     let verifier = AllowAnyAuthenticatedClient::new(root_store);
@@ -181,7 +173,7 @@ pub(crate) fn create_server_tls_config(
     log::debug!("Loading Private Key File");
     let private_key = load_private_key(pk_path)?;
     let config = ServerConfig::builder()
-        .with_cipher_suites(cipher_suites)
+        .with_cipher_suites(TLS_CLIENT_CIPHER_SUITES)
         .with_safe_default_kx_groups()
         .with_protocol_versions(&[&version::TLS12])?
         .with_client_cert_verifier(Arc::new(verifier))
