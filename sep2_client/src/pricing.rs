@@ -137,7 +137,7 @@ impl Schedule<TimeTariffInterval> {
                 "Client: Pricing response POST attempted failed with reason: {}",
                 e
             ),
-            Ok(r @ (SEPResponse::Created(_) | SEPResponse::NoContent)) => {
+            Ok(r @ (SEPResponse::Created(_) | SEPResponse::NoContent(_))) => {
                 log::info!(
                     "Client: Pricing response POST attempt succeeded with reason: {}",
                     r

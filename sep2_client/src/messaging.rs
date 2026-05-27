@@ -119,7 +119,7 @@ impl Schedule<TextMessage> {
                 "Client: Messaging response POST attempted failed with reason: {}",
                 e
             ),
-            Ok(r @ (SEPResponse::Created(_) | SEPResponse::NoContent)) => {
+            Ok(r @ (SEPResponse::Created(_) | SEPResponse::NoContent(_))) => {
                 log::info!(
                     "Client: Messaging response POST attempt succeeded with reason: {}",
                     r

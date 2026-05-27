@@ -142,7 +142,7 @@ impl Schedule<EndDeviceControl> {
                 "Client: DRLC response POST attempt failed with reason: {}",
                 e
             ),
-            Ok(r @ (SEPResponse::Created(_) | SEPResponse::NoContent)) => {
+            Ok(r @ (SEPResponse::Created(_) | SEPResponse::NoContent(_))) => {
                 log::info!(
                     "Client: DRLC response POST attempt succeeded with reason: {}",
                     r

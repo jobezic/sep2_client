@@ -165,7 +165,7 @@ impl Schedule<DERControl> {
                 "DERControlSchedule: DERControlResponse POST attempt failed with reason: {}",
                 e
             ),
-            Ok(r @ (SEPResponse::Created(_) | SEPResponse::NoContent)) => {
+            Ok(r @ (SEPResponse::Created(_) | SEPResponse::NoContent(_))) => {
                 log::info!(
                     "DERControlSchedule: DERControlResponse POST attempt succeeded with reason: {}",
                     r
